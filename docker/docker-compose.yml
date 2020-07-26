@@ -1,0 +1,95 @@
+version: '2.1'
+services:
+    postgres:
+        image: postgres:latest
+        environment:
+               - POSTGRES_PASSWORD=XXXXX
+               - POSTGRES_USER=airflow
+               - POSTGRES_DB=airflow
+        ports:
+               - "5432:5432"
+        restart: always
+        volumes:
+                - /home/igf/postgres_data:/var/lib/postgresql/data:z
+        container_name: postgres
+        networks:
+               - default
+    webserver:
+        image: imperialgenomicsfacility/igf-airflow-docker:latest
+        environment:
+                - AIRFLOW__CORE__SQL_ALCHEMY_CONN=postgresql://airflow:XXXXXX@postgres/airflow 
+                - POSTGRES_HOST=postgres
+                - POSTGRES_PASSWORD=XXXXX
+                - USER_NAME=airflow
+                - USER_PASS=XXXXX
+                - USER_EMAIL=XXXXXX
+                - AIRFLOW__CORE__BASE_LOG_FOLDER=/usr/local/airflow/logs 
+                - AIRFLOW__CORE__DAGS_FOLDER=/usr/local/airflow/dags 
+                - AIRFLOW__CORE__LOGGING_LEVEL=WARN 
+                - AIRFLOW__CORE__DEFAULT_TIMEZONE="Europe/London" 
+                - AIRFLOW__CORE__PARALLELISM=2 
+                - AIRFLOW__CORE__DAG_CONCURRENCY=1 
+                - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=False 
+                - AIRFLOW__CORE__NON_POOLED_TASK_SLOT_COUNT=10 
+                - AIRFLOW__CORE__MAX_ACTIVE_RUNS_PER_DAG=1
+                - AIRFLOW__CORE__LOAD_EXAMPLES=False
+                - FERNET_KEY=XXXXXXXXXXXX
+        links:
+                - postgres
+        ports:
+                - "8082:8080"
+        volumes:
+                - /home/igf/airflow/logs:/usr/local/airflow/logs:z
+                - /home/igf/github/IGF-cron-scripts/airflow-dags:/usr/local/airflow/dags:z
+        depends_on:
+                - postgres
+        restart: always
+        command: first_run
+        container_name: webserver
+        networks:
+               - default
+    scheduler:
+        image: imperialgenomicsfacility/igf-airflow-docker:latest
+        environment:
+                - AIRFLOW__CORE__SQL_ALCHEMY_CONN=postgresql://airflow:XXXXXX@postgres/airflow 
+                - POSTGRES_HOST=postgres
+                - POSTGRES_PASSWORD=XXXXXX
+                - USER_NAME=airflow
+                - USER_PASS=XXXXXX
+                - USER_EMAIL=XXXXXXXXXX
+                - AIRFLOW__CORE__BASE_LOG_FOLDER=/usr/local/airflow/logs 
+                - AIRFLOW__CORE__DAGS_FOLDER=/usr/local/airflow/dags 
+                - AIRFLOW__CORE__LOGGING_LEVEL=WARN 
+                - AIRFLOW__CORE__DEFAULT_TIMEZONE="Europe/London" 
+                - AIRFLOW__CORE__PARALLELISM=2 
+                - AIRFLOW__CORE__DAG_CONCURRENCY=1 
+                - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=False 
+                - AIRFLOW__CORE__NON_POOLED_TASK_SLOT_COUNT=10 
+                - AIRFLOW__CORE__MAX_ACTIVE_RUNS_PER_DAG=1
+                - AIRFLOW__CORE__LOAD_EXAMPLES=False
+                - FERNET_KEY=XXXXXXXXXXX
+        links:
+                - postgres
+        depends_on:
+                - postgres
+                - webserver
+        volumes:
+                - /home/igf/airflow/logs:/usr/local/airflow/logs:z
+                - /home/igf/github/IGF-cron-scripts/airflow-dags:/usr/local/airflow/dags:z
+        restart: always
+        command: scheduler
+        container_name: scheduler
+        networks:
+               - default
+    adminer:
+        image: adminer:latest
+        ports:
+                - "8081:8080"
+        depends_on:
+                - postgres
+        links:
+                - postgres
+        restart: always
+        container_name: adminer
+        networks:
+               - default
