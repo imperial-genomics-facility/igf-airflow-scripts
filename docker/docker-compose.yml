@@ -1,9 +1,9 @@
 version: '2.1'
 services:
-    postgres_db:
+    airflow_db:
         image: postgres:latest
         env_file:
-               - airflow_env
+               - airflow_db_env
         ports:
                - "5433:5432"
         restart: always
@@ -12,10 +12,10 @@ services:
         container_name: airflow_db
         networks:
                - default
-    postgres_results_db:
+    airflow_results_db:
         image: postgres:latest
         env_file:
-               - airflow_env
+               - airflow_results_db_env
         ports:
                - "5434:5432"
         restart: always
@@ -24,7 +24,7 @@ services:
         container_name: airflow_results_db
         networks:
                - default
-    redis:
+    redis-server:
         image: redis:latest
         ports:
               - "6379:6379"
@@ -36,7 +36,7 @@ services:
         command: redis-server /usr/local/etc/redis/redis.conf --appendonly yes
         networks:
                - default
-    webserver:
+    airflow-webserver:
         image: apache/airflow:1.10.12
         env_file:
                 - airflow_env
@@ -60,7 +60,7 @@ services:
         container_name: airflow-webserver
         networks:
                - default
-    scheduler:
+    airflow-scheduler:
         image: apache/airflow:1.10.12
         env_file:
                 - airflow_env
@@ -100,7 +100,7 @@ services:
                 - /home/igf/github/igf-airflow-scripts/airflow-dags:/opt/airflow/dags:z
         restart: always
         command: worker
-        container_name: airflow-worker1
+        container_name: airflow-worker
         networks:
                - default
     adminer:
