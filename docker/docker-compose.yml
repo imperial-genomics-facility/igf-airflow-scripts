@@ -1,84 +1,106 @@
 version: '2.1'
 services:
-    postgres:
+    postgres_db:
         image: postgres:latest
-        environment:
-               - POSTGRES_PASSWORD=XXXXX
-               - POSTGRES_USER=airflow
-               - POSTGRES_DB=airflow
+        env_file:
+               - airflow_env
         ports:
-               - "5432:5432"
+               - "5433:5432"
         restart: always
         volumes:
-                - /home/igf/postgres_data:/var/lib/postgresql/data:z
-        container_name: postgres
+                - /home/igf/postgres_airflow_db:/var/lib/postgresql/data:z
+        container_name: airflow_db
+        networks:
+               - default
+    postgres_results_db:
+        image: postgres:latest
+        env_file:
+               - airflow_env
+        ports:
+               - "5434:5432"
+        restart: always
+        volumes:
+                - /home/igf/postgres_airflow_results_db:/var/lib/postgresql/data:z
+        container_name: airflow_results_db
+        networks:
+               - default
+    redis:
+        image: redis:latest
+        ports:
+              - "6379:6379"
+        restart: always
+        volumes:
+               - /home/igf/redis_conf/redis.conf:/usr/local/etc/redis/redis.conf:z
+               - /home/igf/redis_airflow_data:/data:z
+        container_name: redis-server
+        command: redis-server /usr/local/etc/redis/redis.conf --appendonly yes
         networks:
                - default
     webserver:
-        image: imperialgenomicsfacility/igf-airflow-docker:latest
-        environment:
-                - AIRFLOW__CORE__SQL_ALCHEMY_CONN=postgresql://airflow:XXXXXX@postgres/airflow 
-                - POSTGRES_HOST=postgres
-                - POSTGRES_PASSWORD=XXXXX
-                - USER_NAME=airflow
-                - USER_PASS=XXXXX
-                - USER_EMAIL=XXXXXX
-                - AIRFLOW__CORE__BASE_LOG_FOLDER=/usr/local/airflow/logs 
-                - AIRFLOW__CORE__DAGS_FOLDER=/usr/local/airflow/dags 
-                - AIRFLOW__CORE__LOGGING_LEVEL=WARN 
-                - AIRFLOW__CORE__DEFAULT_TIMEZONE="Europe/London" 
-                - AIRFLOW__CORE__PARALLELISM=2 
-                - AIRFLOW__CORE__DAG_CONCURRENCY=1 
-                - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=False 
-                - AIRFLOW__CORE__NON_POOLED_TASK_SLOT_COUNT=10 
-                - AIRFLOW__CORE__MAX_ACTIVE_RUNS_PER_DAG=1
-                - AIRFLOW__CORE__LOAD_EXAMPLES=False
-                - FERNET_KEY=XXXXXXXXXXXX
+        image: apache/airflow:1.10.12
+        env_file:
+                - airflow_env
         links:
-                - postgres
+                - airflow_db
+                - airflow_results_db
+                - redis-server
         ports:
-                - "8082:8080"
+                - "8083:8080"
         volumes:
-                - /home/igf/airflow/logs:/usr/local/airflow/logs:z
-                - /home/igf/github/IGF-cron-scripts/airflow-dags:/usr/local/airflow/dags:z
+                - /home/igf/airflow/logs:/opt/airflow/logs:z
+                - /home/igf/github/igf-airflow-scripts/airflow-dags:/opt/airflow/dags:z
+                - /home/igf/ssl_cert/airflow.cert:/SSL/airflow.cert:z \
+                - /home/igf/ssl_cert/airflow.key:/SSL/airflow.key:z \
         depends_on:
-                - postgres
+                - airflow_db
+                - airflow_results_db
+                - redis-server
         restart: always
-        command: first_run
-        container_name: webserver
+        command: webserver
+        container_name: airflow-webserver
         networks:
                - default
     scheduler:
-        image: imperialgenomicsfacility/igf-airflow-docker:latest
-        environment:
-                - AIRFLOW__CORE__SQL_ALCHEMY_CONN=postgresql://airflow:XXXXXX@postgres/airflow 
-                - POSTGRES_HOST=postgres
-                - POSTGRES_PASSWORD=XXXXXX
-                - USER_NAME=airflow
-                - USER_PASS=XXXXXX
-                - USER_EMAIL=XXXXXXXXXX
-                - AIRFLOW__CORE__BASE_LOG_FOLDER=/usr/local/airflow/logs 
-                - AIRFLOW__CORE__DAGS_FOLDER=/usr/local/airflow/dags 
-                - AIRFLOW__CORE__LOGGING_LEVEL=WARN 
-                - AIRFLOW__CORE__DEFAULT_TIMEZONE="Europe/London" 
-                - AIRFLOW__CORE__PARALLELISM=2 
-                - AIRFLOW__CORE__DAG_CONCURRENCY=1 
-                - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=False 
-                - AIRFLOW__CORE__NON_POOLED_TASK_SLOT_COUNT=10 
-                - AIRFLOW__CORE__MAX_ACTIVE_RUNS_PER_DAG=1
-                - AIRFLOW__CORE__LOAD_EXAMPLES=False
-                - FERNET_KEY=XXXXXXXXXXX
+        image: apache/airflow:1.10.12
+        env_file:
+                - airflow_env
         links:
-                - postgres
+                - airflow_db
+                - airflow_results_db
+                - redis-server
         depends_on:
-                - postgres
-                - webserver
+                - airflow_db
+                - airflow_results_db
+                - airflow-webserver
+                - redis-server
         volumes:
-                - /home/igf/airflow/logs:/usr/local/airflow/logs:z
-                - /home/igf/github/IGF-cron-scripts/airflow-dags:/usr/local/airflow/dags:z
+                - /home/igf/airflow/logs:/opt/airflow/logs:z
+                - /home/igf/github/igf-airflow-scripts/airflow-dags:/opt/airflow/dags:z
         restart: always
         command: scheduler
-        container_name: scheduler
+        container_name: airflow-scheduler
+        networks:
+               - default
+    airflow-worker:
+        image: apache/airflow:1.10.12
+        env_file:
+                - airflow_env
+        links:
+                - airflow_db
+                - airflow_results_db
+                - redis-server
+        depends_on:
+                - airflow_db
+                - airflow_results_db
+                - airflow-webserver
+                - redis-server
+                - airflow-scheduler
+        volumes:
+                - /home/igf/airflow/logs:/opt/airflow/logs:z
+                - /home/igf/github/igf-airflow-scripts/airflow-dags:/opt/airflow/dags:z
+        restart: always
+        command: worker
+        container_name: airflow-worker1
         networks:
                - default
     adminer:
@@ -86,9 +108,11 @@ services:
         ports:
                 - "8081:8080"
         depends_on:
-                - postgres
+                - airflow_db
+                - airflow_results_db
         links:
-                - postgres
+                - airflow_db
+                - airflow_results_db
         restart: always
         container_name: adminer
         networks:
