@@ -1,4 +1,4 @@
-version: '2.1'
+version: '2.2'
 services:
     airflow_db:
         image: postgres:latest
@@ -8,7 +8,7 @@ services:
                - "5433:5432"
         restart: always
         volumes:
-                - /home/igf/postgres_airflow_db:/var/lib/postgresql/data:z
+                - /home/igf/postgres_airflow_db:/var/lib/postgresql/data:rw
         container_name: airflow_db
         networks:
                - default
@@ -20,7 +20,7 @@ services:
                - "5434:5432"
         restart: always
         volumes:
-                - /home/igf/postgres_airflow_results_db:/var/lib/postgresql/data:z
+                - /home/igf/postgres_airflow_results_db:/var/lib/postgresql/data:rw
         container_name: airflow_results_db
         networks:
                - default
@@ -30,13 +30,13 @@ services:
               - "6379:6379"
         restart: always
         volumes:
-               - /home/igf/redis_conf/redis.conf:/usr/local/etc/redis/redis.conf:z
-               - /home/igf/redis_airflow_data:/data:z
+               - /home/igf/redis_conf/redis.conf:/usr/local/etc/redis/redis.conf:ro
+               - /home/igf/redis_airflow_data:/data:rw
         container_name: redis-server
         command: redis-server /usr/local/etc/redis/redis.conf --appendonly yes
         networks:
                - default
-    airflow-webserver:
+    airflow_webserver:
         image: apache/airflow:1.10.12
         env_file:
                 - airflow_env
@@ -47,20 +47,20 @@ services:
         ports:
                 - "8083:8080"
         volumes:
-                - /home/igf/airflow/logs:/opt/airflow/logs:z
-                - /home/igf/github/igf-airflow-scripts/airflow-dags:/opt/airflow/dags:z
-                - /home/igf/ssl_cert/airflow.cert:/SSL/airflow.cert:z \
-                - /home/igf/ssl_cert/airflow.key:/SSL/airflow.key:z \
+                - /home/igf/airflow/logs:/opt/airflow/logs:rw
+                - /home/igf/github/igf-airflow-scripts/airflow-dags:/opt/airflow/dags:rw
+                - /home/igf/ssl_cert/airflow.cert:/SSL/airflow.cert:ro
+                - /home/igf/ssl_cert/airflow.key:/SSL/airflow.key:ro
         depends_on:
                 - airflow_db
                 - airflow_results_db
                 - redis-server
         restart: always
         command: webserver
-        container_name: airflow-webserver
+        container_name: airflow_webserver
         networks:
                - default
-    airflow-scheduler:
+    airflow_scheduler:
         image: apache/airflow:1.10.12
         env_file:
                 - airflow_env
@@ -71,14 +71,14 @@ services:
         depends_on:
                 - airflow_db
                 - airflow_results_db
-                - airflow-webserver
+                - airflow_webserver
                 - redis-server
         volumes:
-                - /home/igf/airflow/logs:/opt/airflow/logs:z
-                - /home/igf/github/igf-airflow-scripts/airflow-dags:/opt/airflow/dags:z
+                - /home/igf/airflow/logs:/opt/airflow/logs:rw
+                - /home/igf/github/igf-airflow-scripts/airflow-dags:/opt/airflow/dags:rw
         restart: always
         command: scheduler
-        container_name: airflow-scheduler
+        container_name: airflow_scheduler
         networks:
                - default
     airflow-worker:
@@ -92,12 +92,12 @@ services:
         depends_on:
                 - airflow_db
                 - airflow_results_db
-                - airflow-webserver
+                - airflow_webserver
                 - redis-server
-                - airflow-scheduler
+                - airflow_scheduler
         volumes:
-                - /home/igf/airflow/logs:/opt/airflow/logs:z
-                - /home/igf/github/igf-airflow-scripts/airflow-dags:/opt/airflow/dags:z
+                - /home/igf/airflow/logs:/opt/airflow/logs:rw
+                - /home/igf/github/igf-airflow-scripts/airflow-dags:/opt/airflow/dags:rw
         restart: always
         command: worker
         container_name: airflow-worker
